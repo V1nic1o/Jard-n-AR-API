@@ -30,3 +30,7 @@ def create_user_design(db: Session, design: design_schema.DesignCreate, user_id:
 # --- NUEVA FUNCIÓN PARA OBTENER DISEÑOS ---
 def get_user_designs(db: Session, user_id: int):
     return db.query(design_model.Design).filter(design_model.Design.owner_id == user_id).all()
+
+# --- NUEVA FUNCIÓN ---
+def get_design_by_id(db: Session, design_id: int):
+    return db.query(design_model.Design).filter(design_model.Design.id == design_id).first()

@@ -14,6 +14,10 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models import user as user_model
 
+from fastapi.responses import StreamingResponse
+from app.services import pdf_generator
+from io import BytesIO
+
 router = APIRouter(
     prefix="/designs",
     tags=["designs"],
@@ -60,3 +64,29 @@ def read_user_designs(
     """
     designs = design_crud.get_user_designs(db=db, user_id=current_user.id)
     return designs
+
+# --- NUEVO ENDPOINT PARA GENERAR EL PDF ---
+@router.get("/{design_id}/pdf", tags=["designs"])
+def download_design_pdf(
+    design_id: int,
+    db: Session = Depends(get_db),
+    current_user: user_model.User = Depends(get_current_user)
+):
+    # 1. Buscamos el diseño en la base de datos
+    db_design = design_crud.get_design_by_id(db=db, design_id=design_id)
+
+    # 2. Verificaciones de seguridad
+    if not db_design:
+        raise HTTPException(status_code=404, detail="Diseño no encontrado")
+    if db_design.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="No tienes permiso para acceder a este diseño")
+
+    # 3. Llamamos a nuestro servicio para generar el PDF
+    pdf_bytes = pdf_generator.generate_design_pdf(db_design)
+
+    # 4. Devolvemos el PDF como un archivo para descargar
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=diseño_{design_id}.pdf"}
+    )
