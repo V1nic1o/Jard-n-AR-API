@@ -17,6 +17,7 @@ from app.models import user as user_model
 from fastapi.responses import StreamingResponse
 from app.services import pdf_generator
 from io import BytesIO
+import re # Para limpiar el nombre del archivo
 
 router = APIRouter(
     prefix="/designs",
@@ -65,7 +66,7 @@ def read_user_designs(
     designs = design_crud.get_user_designs(db=db, user_id=current_user.id)
     return designs
 
-# --- NUEVO ENDPOINT PARA GENERAR EL PDF ---
+# --- ENDPOINT CORREGIDO PARA GENERAR EL PDF CON EL NOMBRE DEL DISEÑO ---
 @router.get("/{design_id}/pdf", tags=["designs"])
 def download_design_pdf(
     design_id: int,
@@ -84,9 +85,15 @@ def download_design_pdf(
     # 3. Llamamos a nuestro servicio para generar el PDF
     pdf_bytes = pdf_generator.generate_design_pdf(db_design)
 
-    # 4. Devolvemos el PDF como un archivo para descargar
+    # --- INICIO DE LA CORRECIÓN ---
+    # Limpiamos el nombre del diseño para que sea un nombre de archivo válido.
+    # Reemplazamos espacios y cualquier caracter no seguro con un guion bajo.
+    clean_filename = re.sub(r'[^\w\._-]', '_', db_design.name)
+    
+    # 4. Devolvemos el PDF como un archivo para descargar con el nombre correcto
     return StreamingResponse(
         BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=diseño_{design_id}.pdf"}
+        headers={"Content-Disposition": f"attachment; filename={clean_filename}.pdf"}
     )
+    # --- FIN DE LA CORRECIÓN ---
