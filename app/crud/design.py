@@ -34,3 +34,9 @@ def get_user_designs(db: Session, user_id: int):
 # --- NUEVA FUNCIÓN ---
 def get_design_by_id(db: Session, design_id: int):
     return db.query(design_model.Design).filter(design_model.Design.id == design_id).first()
+
+# --- NUEVA FUNCIÓN PARA ELIMINAR ---
+def delete_design(db: Session, db_design: design_model.Design):
+    db.delete(db_design)
+    db.commit()
+    return db_design

@@ -1,24 +1,43 @@
 # app/main.py
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.core.database import engine
-# Importamos los nuevos modelos
 from app.models import user as user_model, design as design_model
-# Importamos los nuevos routers
 from app.routers import users, auth, designs
 
-# Esta línea ahora también creará las tablas de diseños
+# Esta línea crea las tablas en tu base de datos (si no existen)
 user_model.Base.metadata.create_all(bind=engine)
 design_model.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Jardín AR API",
-    # ... (el resto es igual)
+    description="API para la aplicación de diseño de jardines en Realidad Aumentada.",
+    version="0.1.0",
 )
+
+# --- INICIO DE LA CONFIGURACIÓN DE CORS ---
+
+# Orígenes que tienen permiso para hacer peticiones. 
+# El "*" es un comodín que significa "cualquiera". Ideal para desarrollo.
+origins = [
+    "*",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"], # Permite todos los métodos (GET, POST, etc.)
+    allow_headers=["*"], # Permite todas las cabeceras
+)
+
+# --- FIN DE LA CONFIGURACIÓN DE CORS ---
+
 
 # Incluimos todos los routers
 app.include_router(users.router)
 app.include_router(auth.router)
-app.include_router(designs.router) # <-- Añadimos el nuevo router
+app.include_router(designs.router)
 
 @app.get("/")
 def leer_raiz():

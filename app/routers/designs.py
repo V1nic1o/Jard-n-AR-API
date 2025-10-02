@@ -1,5 +1,5 @@
 # app/routers/designs.py
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status, Response
 from sqlalchemy.orm import Session
 import json
 import cloudinary
@@ -96,4 +96,38 @@ def download_design_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={clean_filename}.pdf"}
     )
-    # --- FIN DE LA CORRECIÓN ---
+    
+    # --- NUEVO ENDPOINT PARA ELIMINAR UN DISEÑO ---
+@router.delete("/{design_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_design_endpoint(
+    design_id: int,
+    db: Session = Depends(get_db),
+    current_user: user_model.User = Depends(get_current_user)
+):
+    # 1. Buscamos el diseño en la base de datos
+    db_design = design_crud.get_design_by_id(db=db, design_id=design_id)
+
+    # 2. Verificamos si existe y si pertenece al usuario actual (seguridad)
+    if not db_design:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Diseño no encontrado")
+
+    if db_design.owner_id != current_user.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tienes permiso para eliminar este diseño")
+
+    # 3. (Opcional pero recomendado) Eliminar la imagen de Cloudinary
+    if db_design.screenshot_url:
+        try:
+            # Extraemos el 'public_id' de la URL de Cloudinary para decirle cuál borrar
+            public_id_with_extension = db_design.screenshot_url.split('/')[-1]
+            public_id = public_id_with_extension.rsplit('.', 1)[0]
+            cloudinary.uploader.destroy(public_id)
+        except Exception as e:
+            # Si falla la eliminación en Cloudinary, solo lo registramos en la consola.
+            # No detenemos la eliminación del diseño de nuestra base de datos.
+            print(f"Advertencia: No se pudo eliminar la imagen de Cloudinary: {e}")
+
+    # 4. Eliminamos el diseño de nuestra base de datos usando la función del CRUD
+    design_crud.delete_design(db=db, db_design=db_design)
+
+    # Devolvemos una respuesta vacía (204), que es el estándar para una eliminación exitosa
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
